@@ -154,9 +154,9 @@ if (-d $reacts) { # Directory of structure files
 }
 else { # Single structure file
 
-    die "\n\n  [!] Error: Provided file lacks .xml extension\n\n" if ($structs !~ m/\.xml$/);
+    die "\n\n  [!] Error: Provided file lacks .xml extension\n\n" if ($reacts !~ m/\.xml$/);
 
-    my $id = $reacts;
+    my $id = basename($reacts);
     $id =~ s/\.xml$//;
 
     $structs{$id}->{reactFile} = $reacts if (exists $structs{$id});

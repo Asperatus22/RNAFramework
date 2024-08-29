@@ -183,11 +183,11 @@ if (-e $output) {
 
 }
 
-mkpath($output, { mode  => 0755,
+mkpath($output, { mode  => 0775,
                   error => \$error });
-mkpath($output . "plots", { mode  => 0755,
+mkpath($output . "plots", { mode  => 0775,
                             error => \$error }) if ($metaplot || $metacoding);
-mkpath($output . "plots/transcripts", { mode  => 0755,
+mkpath($output . "plots/transcripts", { mode  => 0775,
                                         error => \$error }) if ($img);
 
 @index = split(/,/, $index);
@@ -317,7 +317,7 @@ sub call {
             print CLRRET . "[+] Calling peaks [Last: $id]";
 
             $initial = uc(substr($id, 0, 1));
-            mkpath($output . "plots/transcripts/" . $initial, { mode  => 0755,
+            mkpath($output . "plots/transcripts/" . $initial, { mode  => 0775,
                                                                 error => \$error }) if ($img &&
                                                                                         !-e $output . "plots/transcripts/" . $initial);
 

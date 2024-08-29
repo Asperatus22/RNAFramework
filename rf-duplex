@@ -207,9 +207,9 @@ if (-e $output) {
 
 }
 
-mkpath($tmpDir, { mode  => 0755,
+mkpath($tmpDir, { mode  => 0775,
                   error => \$error });
-mkpath($logDir, { mode  => 0755,
+mkpath($logDir, { mode  => 0775,
                   error => \$error });
 
 die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
@@ -257,17 +257,17 @@ foreach my $sample (sort keys %samples) {
 
     print "\n[+] Processing sample \"" . $sample . "\"\n";
 
-    mkpath($output . $sample . "/dotplot/", { mode  => 0755,
+    mkpath($output . $sample . "/dotplot/", { mode  => 0775,
                                               error => \$error }) if (!$evalOnly && !$dumpChimaerasOnly);
-    mkpath($output . $sample . "/clustered/", { mode  => 0755,
+    mkpath($output . $sample . "/clustered/", { mode  => 0775,
                                                 error => \$error }) if ($makeClustersSam);
-    mkpath($output . $sample . "/images/", { mode  => 0755,
+    mkpath($output . $sample . "/images/", { mode  => 0775,
                                              error => \$error }) if ($makeImage);
-    mkpath($output . $sample . "/constraints/", { mode  => 0755,
+    mkpath($output . $sample . "/constraints/", { mode  => 0775,
                                                   error => \$error }) if ($makeConstraint);
-    mkpath($output . $sample . "/bpcounts/", { mode  => 0755,
+    mkpath($output . $sample . "/bpcounts/", { mode  => 0775,
                                                error => \$error }) if ($evalStructures);
-    mkpath($output . $sample . "/chimaeras/", { mode  => 0755,
+    mkpath($output . $sample . "/chimaeras/", { mode  => 0775,
                                                 error => \$error }) if ($dumpChimaeras);
 
     die "\n\n  [!] Error: Unable to create output directory for sample \"" . $sample . "\" (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
@@ -395,12 +395,12 @@ sub processTranscript {
 
           if (defined $id && !-e $output . $sample . "/dotplot/" . uc(substr($id, 0, 1))) {
 
-              mkpath($output . $sample . "/dotplot/" . uc(substr($id, 0, 1)), { mode  => 0755 }) if (!$evalOnly && !$dumpChimaerasOnly);
-              mkpath($output . $sample . "/clustered/" . uc(substr($id, 0, 1)), { mode  => 0755 }) if ($makeClustersSam);
-              mkpath($output . $sample . "/images/" . uc(substr($id, 0, 1)), { mode  => 0755 }) if ($makeImage);
-              mkpath($output . $sample . "/constraints/" . uc(substr($id, 0, 1)), { mode  => 0755 }) if ($makeConstraint);
-              mkpath($output . $sample . "/bpcounts/" . uc(substr($id, 0, 1)), { mode  => 0755 }) if ($evalStructures);
-              mkpath($output . $sample . "/chimaeras/" . uc(substr($id, 0, 1)), { mode  => 0755 }) if ($dumpChimaeras);
+              mkpath($output . $sample . "/dotplot/" . uc(substr($id, 0, 1)), { mode  => 0775 }) if (!$evalOnly && !$dumpChimaerasOnly);
+              mkpath($output . $sample . "/clustered/" . uc(substr($id, 0, 1)), { mode  => 0775 }) if ($makeClustersSam);
+              mkpath($output . $sample . "/images/" . uc(substr($id, 0, 1)), { mode  => 0775 }) if ($makeImage);
+              mkpath($output . $sample . "/constraints/" . uc(substr($id, 0, 1)), { mode  => 0775 }) if ($makeConstraint);
+              mkpath($output . $sample . "/bpcounts/" . uc(substr($id, 0, 1)), { mode  => 0775 }) if ($evalStructures);
+              mkpath($output . $sample . "/chimaeras/" . uc(substr($id, 0, 1)), { mode  => 0775 }) if ($dumpChimaeras);
 
           } }
 
