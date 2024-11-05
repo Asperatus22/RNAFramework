@@ -34,6 +34,7 @@ use Data::XML;
 use RF::Config;
 use RF::Data::IO::RC;
 use Term::Constants qw(:screen);
+use Term::Progress;
 
 $|++;
 
@@ -48,8 +49,9 @@ my ($help, $output, $overwrite, $configfile,
     $rc, $hasctrl, $decimals, $nan,
     $remap, $raw, $suffix, $maxumut,
     $denatured, $dynwin, $maxmutrate, $normfactor,
-    $ignoreLower, @index, @pool, @normfactor);
+    $ignoreLower, @pool, @normfactor);
 
+my $progressBar : shared;
 my @ids : shared;
 my %results : shared;
 %results = ( cov      => 0,
@@ -108,10 +110,9 @@ $winoffset ||= $scoremethod =~ m/^Ding|Siegfried|Zubradt|[134]$/i ? 1e9 : 50;
 $suffix = $raw ? "_raw/" : "_norm/";
 
 die "\n  [!] Error: Number of processors must be an integer greater than 0\n\n" if ($threads < 1);
-die "\n  [!] Error: Decimals value must be an integer comprised between 1 and 10\n\n" if ($decimals < 1 ||
-                                                                                          $decimals > 10);
-die "\n  [!] Error: Maximum allowed window size for dynamic windows is 30000 nt\n\n" if ($dynwin &&
-                                                                                         $normwin > 30000);
+die "\n  [!] Error: Decimals value must be an integer comprised between 1 and 10\n\n" if ($decimals < 1 || $decimals > 10);
+die "\n  [!] Error: Maximum allowed window size for dynamic windows is 30000 nt\n\n" if ($dynwin && $normwin > 30000);
+die "\n  [!] Error: Provided RCI index file does not exist\n\n" if ($index && !-e $index);
 
 print "\n[+] Parsing configuration...";
 
@@ -213,45 +214,40 @@ mkpath($output, { mode  => 0775,
 
 die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
 
-@index = split(/,/, $index);
-
 # In case no index has been provided, we rebuild the index before generating the working threads
 # The new index will be generated in the same path of the rc file, with extension .rci
-if (!@index) {
-
-    print "\n[+] Regenerating RCI index files...";
+if (!$index) {
 
     $rc = RF::Data::IO::RC->new( file       => $untreated,
-                                 buildindex => 1 ) if ($hasctrl);
+                                 index      => "$untreated.rci",
+                                 buildindex => 1 ) if ($hasctrl && !-e "$untreated.rci");
 
     $rc = RF::Data::IO::RC->new( file       => $denatured,
-                                 buildindex => 1 ) if ($config->scoremethod() == 3 &&
-                                                       defined $denatured);
-
-}
-elsif (@index > 1) {
-
-    die "\n\n  [!] Error: 2 RCI index files provided, but 3 expected\n\n" if (@index < 3 &&
-                                                                              $config->scoremethod() == 3 &&
-                                                                              defined $denatured);
+                                 index      => "$denatured.rci",
+                                 buildindex => 1 ) if ($config->scoremethod() == 3 && defined $denatured && !-e "$denatured.rci");
 
 }
 
 $rc = RF::Data::IO::RC->new( file       => $treated,
-                             index      => @index ? $index[-1] : undef,
-                             buildindex => 1 );
+                             index      => $index ? $index : "$treated.rci",
+                             buildindex => $index || -e "$treated.rci" ? 0 : 1 );
 
 print "\n[+] Loading transcript IDs... ";
 
 @ids = $rc->ids();
 
 print scalar(@ids) . " transcripts loaded." .
-      "\n[+] Normalizing reactivities [Last: none]";
+      "\n[+] Normalizing reactivities. Please wait...\n\n";
+
+$progressBar = shared_clone(Term::Progress->new( max     => scalar(@ids),
+                                                 width   => 50,
+                                                 colored => 1 ));
+$progressBar->init();
 
 @pool = map{ threads->create(\&norm) } 1 .. $threads;
 $_->join() for(@pool);
 
-print "\n[+] Normalization statistics:\n" .
+print "\n\n[+] Normalization statistics:\n" .
       "\n  [*] Covered transcripts:   " . $results{cov} .
       "\n  [*] Discarded transcripts: " . ($results{incov} + $results{diffuseq} + $results{diffdseq} + $results{nocov} + $results{nouid} + $results{nodid}) . " total" .
       "\n                             " . $results{incov} . " insufficient coverage";
@@ -271,14 +267,13 @@ sub norm {
         $attributes, $xmlio, $xml);
 
     $urc = RF::Data::IO::RC->new( file  => $untreated,
-                                  index => @index ? $index[0] : $untreated . ".rci" ) if ($hasctrl);
+                                  index => $index || "$untreated.rci" ) if ($hasctrl);
 
     $drc = RF::Data::IO::RC->new( file  => $denatured,
-                                  index => @index == 1 ? $index[0] : (@index == 3 ? $index[1] : $denatured . ".rci") ) if (defined $denatured &&
-                                                                                                                           $config->scoremethod() == 3);
+                                  index => $index || "$denatured.rci" ) if (defined $denatured && $config->scoremethod() == 3);
 
     $trc = RF::Data::IO::RC->new( file  => $treated,
-                                  index => @index ? $index[-1] : $treated . ".rci");
+                                  index => $index || "$treated.rci" );
 
     while (1) {
 
@@ -289,8 +284,11 @@ sub norm {
 
         last unless(defined $id);
 
-        my ($tentry, $sequence, $seqmask, @seqmask,
-            @tcounts, @ucounts, @dcounts, @tcov,
+        { lock($progressBar);
+          $progressBar->update(1); }
+
+        my ($tentry, $sequence, $seqmask, $uReads, $tReads,
+            @seqmask, @tcounts, @ucounts, @dcounts, @tcov,
             @ucov, @dcov, @last, @norm);
         $tentry = $trc->read($id);
 
@@ -305,6 +303,7 @@ sub norm {
         }
 
         $sequence = $tentry->sequence();
+        $tReads = $tentry->readscount();
         @seqmask = split(//, $sequence);
         @tcounts = $tentry->counts();
         @tcov = $tentry->coverage();
@@ -332,6 +331,7 @@ sub norm {
 
                 }
 
+                $uReads = $uentry->readscount();
                 @ucounts = $uentry->counts();
                 @ucov = $uentry->coverage();
 
@@ -420,6 +420,9 @@ sub norm {
 
                 for (0 .. $#tcounts) {
 
+                    $uReads -= $ucounts[$_];
+                    $tReads -= $tcounts[$_];
+
                     $ucounts[$_] = log($ucounts[$_] + $config->pseudocount());
                     $tcounts[$_] = log($tcounts[$_] + $config->pseudocount());
 
@@ -429,11 +432,10 @@ sub norm {
                 }
 
                 my ($umean, $tmean);
-                $umean = mean(@ucounts);
-                $tmean = mean(@tcounts);
+                $umean = mean(@ucounts, log(max(0, $uReads) + $config->pseudocount()));
+                $tmean = mean(@tcounts, log(max(0, $tReads) + $config->pseudocount()));
 
-                if (!$umean ||
-                    !$tmean) {
+                if (!$umean || !$tmean) {
 
                     lock(%results);
                     $results{incov}++;
@@ -700,9 +702,7 @@ sub norm {
         $xmlio->write($xml->xml());
 
         { lock(%results);
-          $results{cov}++;
-
-          print CLRRET . "[+] Normalizing reactivities [Last: $id]"; }
+          $results{cov}++; }
 
     }
 
@@ -744,16 +744,14 @@ sub norm_28 {  # 2-8% Normalization
 
     if (!defined $normfactor) {
         
-        my ($p2, $p8);
-        $p2 = round(@reactivity * 0.02);
-        $p8 = round(@reactivity * 0.08);
+        my ($p2, $p10);
+        $p2 = max(1, round(@reactivity * 0.02) - 1);
+        $p10 = max(1, round(@reactivity * 0.1) - 1);
 
-        return() unless($p8);
+        return() unless($p10);
 
         @norm = sort {$b <=> $a} @reactivity;
-
-        $avg += $norm[$_] for ($p2 .. ($p2 + $p8));
-        $avg /= $p8;
+        $avg = mean(@norm[$p2 .. $p10]);
 
         return() if ($avg == 0);
 
@@ -790,8 +788,7 @@ sub boxplot {  # Box-plot Normalization
 
         return unless($p10);
 
-        $avg += $norm[$_] for (0 .. $p10 - 1);
-        $avg /= $p10;
+        $avg = mean(@norm[0 .. $p10 - 1]);
 
         return() if ($avg == 0);
 
@@ -854,12 +851,12 @@ sub help {
  -u  or --untreated           <string>              Untreated sample RC file (required by Ding/Siegfried scoring methods)
  -d  or --denatured           <string>              Denatured sample RC file (optional for Siegfried scoring method)
  -t  or --treated             <string>              Treated sample RC file
- -i  or --index               <string>[,<string>]   A comma separated (no spaces) list of RCI index files for the provided RC files.
-                                                    Note: RCI files must be provided in the order: 1. Untreated, 2. Denatured and 3. Treated.
-                                                          If a single RCI file is specified along with both untreated and treated sample (and
-                                                          denatured sample), it will be used for all samples.
-                                                          If no RCI index is provided, it will be created at runtime, and stored in
-                                                          the same folder of the untreated and treated samples.
+ -i  or --index               <string>              An RCI index file to be used for all input RC files
+                                                    Note: If no RCI index is provided, RF Norm will look for files with .rci
+                                                          extension in the same input folder as the RC files, named after the RC
+                                                          files (e.g., Sample.rc will look for Sample.rc.rci).
+                                                          If no RCI file is found, it will be created at runtime, and stored in
+                                                          the same folder of the input RC files.
  -p  or --processors          <int>                 Number of processors to use (Default: 1)
  -o  or --output-dir          <string>              Output directory (Default: <treated>_vs_<untreated>/ for Ding/Siegfried methods,
                                                                                <treated>/ for Rouskin/Zubradt methods, or
@@ -892,7 +889,7 @@ sub help {
  -mc or --mean-coverage       <float>               Discards any transcript with mean coverage below this threshold (>=0, Default: 0)
  -ec or --median-coverage     <float>               Discards any transcript with median coverage below this threshold (>=0, Default: 0)
  -D  or --decimals            <int>                 Number of decimals for reporting reactivities (1-10, Default: 3)
- -n  or --nan                 <int>                 Transcript positions with read coverage behind this threshold will be reported as NaN in
+ -n  or --nan                 <int>                 Transcript positions with read coverage below this threshold will be reported as NaN in
                                                     the reactivity profile (>0, Default: 10)
 
  Scoring method #1 options (Ding et al., 2014) options
