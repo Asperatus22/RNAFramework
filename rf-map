@@ -258,14 +258,14 @@ if (-e $output) {
 
 }
 
-mkpath($logdir, { mode  => 0755,
+mkpath($logdir, { mode  => 0775,
                   error => \$error });
 
 die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
 
 if (!-e $tmpdir) {
 
-    mkpath($tmpdir, { mode  => 0755,
+    mkpath($tmpdir, { mode  => 0775,
                       error => \$error });
 
     die "\n\n  [!] Error: Unable to create temporary directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});

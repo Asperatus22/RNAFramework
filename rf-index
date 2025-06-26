@@ -155,7 +155,7 @@ if ($list || $prebuilt) {
 
         }
 
-        mkpath($output . "logs/", { mode  => 0755,
+        mkpath($output . "logs/", { mode  => 0775,
                                     error => \$error });
 
         die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
@@ -344,7 +344,7 @@ else {
 
         print "\n[+] Making output directory...";
 
-        mkpath($output . "logs/", { mode  => 0755,
+        mkpath($output . "logs/", { mode  => 0775,
                                     error => \$error });
 
         die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});

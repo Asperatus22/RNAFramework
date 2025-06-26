@@ -116,9 +116,9 @@ if (-e $output) {
 
 }
 
-mkpath($tmpDir, { mode  => 0755,
+mkpath($tmpDir, { mode  => 0775,
                   error => \$error });
-mkpath("${output}plots/dsci", { mode  => 0755,
+mkpath("${output}plots/dsci", { mode  => 0775,
                                 error => \$error }) if ($image);
 
 die "\n\n  [!] Error: Unable to create temporary directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});

@@ -195,7 +195,7 @@ if (-e $output) {
 
 }
 
-mkpath($tmpdir, { mode  => 0755,
+mkpath($tmpdir, { mode  => 0775,
                   error => \$error });
 
 die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
@@ -777,7 +777,7 @@ sub mutate {
                 }
 
                 # Report results
-                mkpath($output . $entry->id(), { mode  => 0755,
+                mkpath($output . $entry->id(), { mode  => 0775,
                                                  error => \$error }) if (!-d $output . $entry->id());
 
                 $xmlio = Data::IO->new( file      => $output . $entry->id() . "/motif_" . join("-", $motif, $motifEnd) . ".xml",

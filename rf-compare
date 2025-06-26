@@ -113,9 +113,9 @@ if (-e $output) {
     
 }
 
-mkpath($tmpDir, { mode  => 0755,
+mkpath($tmpDir, { mode  => 0775,
                   error => \$error });
-mkpath($output . "plots/", { mode  => 0755,
+mkpath($output . "plots/", { mode  => 0775,
                              error => \$error }) if ($img);
 
 die "\n\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});

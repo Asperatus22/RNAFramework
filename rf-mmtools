@@ -595,7 +595,7 @@ elsif ($command eq "alignids") {
     die "\n  [!] Error: Only one MM file provided\n\n" if (@mm < 2);
 
     my ($error, @mmOut, @mmIn, @ids, %ids);
-    mkpath($output, { mode  => 0755,
+    mkpath($output, { mode  => 0775,
                       error => \$error });
 
     die "\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
@@ -663,7 +663,7 @@ elsif ($command eq "split") {
     }
 
     my ($error, $mmIn);
-    mkpath($output, { mode  => 0755,
+    mkpath($output, { mode  => 0775,
                       error => \$error });
 
     die "\n  [!] Error: Unable to create output directory (" . $error->[0]->{each(%{$error->[0]})} . ")\n\n" if (@{$error});
